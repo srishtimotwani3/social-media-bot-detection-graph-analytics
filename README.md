@@ -88,6 +88,18 @@ python src/07_scalability.py
 python src/08_visualization.py
 ```
 
+### Launch Interactive Web Dashboard (UI)
+```bash
+streamlit run app.py
+```
+Open `http://localhost:8501` to explore account verdicts, model comparisons, community clusters, and scalability benchmarks interactively.
+
+---
+
+## Detailed Documentation
+- [Project Architecture & Deep Dive](docs/PROJECT_EXPLAINED.md) — Explanation of the Big Data angle, GraphFrames algorithms, and detailed UI walkthrough.
+- [Code File Guide](docs/CODE_GUIDE.md) — Complete line-by-line feature location map across all source scripts.
+
 ---
 
 ## Technology Choices

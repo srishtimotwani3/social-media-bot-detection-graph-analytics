@@ -97,36 +97,35 @@ def build_nx_graph(rt_v: pd.DataFrame, rt_e: pd.DataFrame) -> nx.DiGraph:
     return G
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 # 3. Extract suspicious subgraph
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
-def get_suspicious_seeds(feat: pd.DataFrame, pr: pd.DataFrame) -> list:
-    if "pagerank" not in feat.columns:
-        feat_pr = feat.merge(pr, on="id", how="left")
-    else:
-        feat_pr = feat
-    pr_thresh = feat_pr["pagerank"].quantile(1 - PAGERANK_TOP_PERC)
+def extract_subgraph(G: nx.DiGraph, max_nodes: int = 120) -> nx.DiGraph:
+    """Extract a representative interaction subgraph with both bots and genuine users."""
+    wcc = sorted(nx.weakly_connected_components(G), key=len, reverse=True)
 
-    suspicious = feat_pr[
-        ((feat_pr["pagerank"] >= pr_thresh) & (feat_pr["label_bin"] == 1)) |
-        (feat_pr.get("community_bot_ratio", pd.Series(dtype=float)) >= PURITY_THRESHOLD)
-    ]["id"].dropna().astype(int).tolist()
+    # 1. Collect top coordinated bot accounts (by degree inside the bot components)
+    bot_nodes = set()
+    for c in wcc:
+        if any(G.nodes[n].get("label") == "bot" for n in c):
+            bot_nodes.update(c)
+    bot_sub = G.subgraph(bot_nodes)
+    top_bots = [n for n, d in sorted(bot_sub.degree(), key=lambda x: x[1], reverse=True)[:60]]
 
-    return suspicious
+    # 2. Collect authentic human accounts from genuine components
+    gen_nodes = [n for c in wcc if all(G.nodes[n].get("label") == "genuine" for n in c) for n in c][:35]
 
-
-def extract_subgraph(G: nx.DiGraph, seeds: list, max_nodes: int) -> nx.DiGraph:
-    """1-hop neighbourhood around seed nodes, capped at max_nodes."""
-    nodes = set(seeds)
-    for s in seeds:
-        if s in G:
-            nodes.update(G.predecessors(s))
-            nodes.update(G.successors(s))
-        if len(nodes) >= max_nodes:
+    # 3. Combine and expand 1-hop neighborhood to capture retweet connections
+    combined = set(top_bots + gen_nodes)
+    for n in list(combined):
+        if len(combined) >= max_nodes:
             break
-    nodes = list(nodes)[:max_nodes]
-    return G.subgraph(nodes).copy()
+        combined.update(G.predecessors(n))
+        combined.update(G.successors(n))
+
+    selected_nodes = list(combined)[:max_nodes]
+    return G.subgraph(selected_nodes).copy()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -168,12 +167,17 @@ def plot_subgraph(Gsub: nx.DiGraph, pr: pd.DataFrame):
         Patch(facecolor="#95a5a6", label="Unknown"),
     ]
     ax.legend(handles=legend_elements, loc="upper left")
-    ax.set_title(f"Suspicious Subgraph (n={Gsub.number_of_nodes()} nodes, "
-                 f"{Gsub.number_of_edges()} edges)\nNode size proportional to PageRank, Red = Bot")
+    ax.set_title(f"Interaction Subgraph (n={Gsub.number_of_nodes()} nodes, "
+                 f"{Gsub.number_of_edges()} edges)\nRed = Bot, Green = Genuine User, Node size proportional to PageRank")
     ax.axis("off")
     fig.tight_layout()
-    out = str(RESULTS_PLOTS / "suspicious_subgraph.png")
-    fig.savefig(out, dpi=150)
+    out = (RESULTS_PLOTS / "suspicious_subgraph.png").resolve()
+    try:
+        fig.savefig(str(out), dpi=150)
+    except OSError:
+        import time
+        time.sleep(1)
+        fig.savefig(str(out), dpi=150)
     plt.close(fig)
     print(f"[INFO] Subgraph plot saved -> {out}")
 
@@ -253,13 +257,8 @@ def main():
     print("[INFO] Building NetworkX graph...")
     G = build_nx_graph(rt_v, rt_e)
 
-    print("[INFO] Finding suspicious seeds...")
-    seeds = get_suspicious_seeds(feat, pr)
-    if not seeds:
-        print("[WARN] No suspicious seeds found -- using top-PageRank nodes instead")
-        seeds = pr.nlargest(20, "pagerank")["id"].astype(int).tolist()
-
-    Gsub = extract_subgraph(G, seeds, MAX_NODES)
+    print("[INFO] Extracting representative interaction subgraph...")
+    Gsub = extract_subgraph(G, MAX_NODES)
     print(f"[INFO] Subgraph: {Gsub.number_of_nodes()} nodes, {Gsub.number_of_edges()} edges")
 
     plot_subgraph(Gsub, pr)
