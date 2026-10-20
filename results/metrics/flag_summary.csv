@@ -1,0 +1,6 @@
+flag,flagged_accounts,actual_bots,precision
+flag_high_pagerank,14368,10894,0.7582126948775055
+flag_high_indegree,14368,10894,0.7582126948775055
+flag_mutual_rt,47,17,0.3617021276595745
+flag_shared_target,407,364,0.8943488943488943
+flag_dense_community,2423,2423,1.0

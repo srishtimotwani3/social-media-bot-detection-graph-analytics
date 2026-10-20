@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data directories (raw dataset is ~465MB zipped, processed is ~485MB)
+data/raw/
+data/processed/
+data/checkpoints/
+
+# Hadoop local winutils binaries
+hadoop/
+
+# Spark / temporary files
+*.parquet
+metastore_db/
+derby.log
+*.tmp
+spark-warehouse/
+
+# OS / Editor specific files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

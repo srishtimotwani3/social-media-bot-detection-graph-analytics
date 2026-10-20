@@ -1,0 +1,8 @@
+pyspark==3.5.1
+graphframes
+networkx>=3.0
+pandas>=2.0
+scikit-learn>=1.2
+matplotlib>=3.7
+seaborn>=0.12
+pyarrow>=14.0
